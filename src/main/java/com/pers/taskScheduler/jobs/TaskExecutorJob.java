@@ -5,6 +5,7 @@ import com.pers.taskScheduler.entity.Task;
 import com.pers.taskScheduler.entity.TaskExecutionLog;
 import com.pers.taskScheduler.enums.TaskStatus;
 import com.pers.taskScheduler.enums.TaskType;
+import com.pers.taskScheduler.handler.WebhookTaskHandler;
 import com.pers.taskScheduler.repository.TaskExecutionLogRepository;
 import com.pers.taskScheduler.repository.TaskRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,10 @@ public class TaskExecutorJob implements Job {
 
     @Autowired
     private TaskExecutionLogRepository logRepository;
+
+    @Autowired
+    private WebhookTaskHandler webhookTaskHandler;
+
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -70,13 +75,19 @@ public class TaskExecutorJob implements Job {
         log.info("Executing SEND_EMAIL task {}", task.getId());
     }
 
-    private void executeWebhookTask(Task task) throws Exception {
-        log.info("Executing CUSTOM_WEBHOOK task {}", task.getId());
+    private void executeWebhookTask(Task task) {
+        if (task.getActionUrl() == null || task.getActionUrl().isEmpty()) {
+            throw new RuntimeException("actionUrl is required for CUSTOM_WEBHOOK task");
+        }
 
-        String url = task.getActionUrl();
-        if (url == null) throw new RuntimeException("Webhook URL missing for task " + task.getId());
+        int statusCode = webhookTaskHandler.executeWebhook(
+                task.getActionUrl(),
+                task.getPayload()
+        );
 
-        // For now just simulate webhook execution
-        log.info("Calling external URL: {}", url);
+        if (statusCode >= 400) {
+            throw new RuntimeException("Webhook failed with status " + statusCode);
+        }
     }
+
 }
