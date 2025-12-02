@@ -47,22 +47,27 @@ public class TaskExecutorJob implements Job {
 
         try {
             // MAIN DECISION POINT
+            int httpStatusCode = 200;
+
             if (task.getTaskType() == TaskType.SEND_EMAIL) {
                 executeEmailTask(task);
             } else if (task.getTaskType() == TaskType.CUSTOM_WEBHOOK) {
-                executeWebhookTask(task);
+                httpStatusCode = executeWebhookTask(task);
             }
+
 
             LocalDateTime end = LocalDateTime.now();
             logBuilder
                     .status(TaskStatus.SUCCESS)
                     .endTime(end)
+                    .httpStatusCode(httpStatusCode)
                     .durationMs(java.time.Duration.between(start, end).toMillis());
 
         } catch (Exception e) {
             LocalDateTime end = LocalDateTime.now();
             logBuilder
                     .status(TaskStatus.FAILED)
+                    .httpStatusCode(500)
                     .errorMessage(e.getMessage())
                     .endTime(end)
                     .durationMs(java.time.Duration.between(start, end).toMillis());
@@ -77,19 +82,16 @@ public class TaskExecutorJob implements Job {
         emailTaskHandler.executeEmail(task.getPayload());
     }
 
-    private void executeWebhookTask(Task task) {
+    private int executeWebhookTask(Task task) {
         if (task.getActionUrl() == null || task.getActionUrl().isEmpty()) {
             throw new RuntimeException("actionUrl is required for CUSTOM_WEBHOOK task");
         }
 
-        int statusCode = webhookTaskHandler.executeWebhook(
+        return webhookTaskHandler.executeWebhook(
                 task.getActionUrl(),
                 task.getPayload()
         );
-
-        if (statusCode >= 400) {
-            throw new RuntimeException("Webhook failed with status " + statusCode);
-        }
     }
+
 
 }
