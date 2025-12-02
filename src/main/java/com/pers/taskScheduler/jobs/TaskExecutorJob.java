@@ -5,6 +5,7 @@ import com.pers.taskScheduler.entity.Task;
 import com.pers.taskScheduler.entity.TaskExecutionLog;
 import com.pers.taskScheduler.enums.TaskStatus;
 import com.pers.taskScheduler.enums.TaskType;
+import com.pers.taskScheduler.handler.EmailTaskHandler;
 import com.pers.taskScheduler.handler.WebhookTaskHandler;
 import com.pers.taskScheduler.repository.TaskExecutionLogRepository;
 import com.pers.taskScheduler.repository.TaskRepository;
@@ -28,6 +29,8 @@ public class TaskExecutorJob implements Job {
     @Autowired
     private WebhookTaskHandler webhookTaskHandler;
 
+    @Autowired
+    private EmailTaskHandler emailTaskHandler;
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -70,9 +73,8 @@ public class TaskExecutorJob implements Job {
         logRepository.save(logBuilder.build());
     }
 
-    private void executeEmailTask(Task task) {
-        // TODO: Implement email logic later
-        log.info("Executing SEND_EMAIL task {}", task.getId());
+    private void executeEmailTask(Task task) throws Exception {
+        emailTaskHandler.executeEmail(task.getPayload());
     }
 
     private void executeWebhookTask(Task task) {
